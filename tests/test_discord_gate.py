@@ -162,7 +162,10 @@ class Sink:
         self.result = (unlocked, msg)
 
 
-def make_verifier(monkeypatch, *, code="code123", error=None, has_role=True, exc=None):
+def make_verifier(
+    monkeypatch, *, code="code123", error=None, has_role=True, exc=None,
+    bind_allowed=True, bind_message="OK",
+):
     monkeypatch.setattr(gate_mod, "webbrowser", type("_W", (), {"open": staticmethod(lambda url: None)}))
     monkeypatch.setattr(gate_mod, "run_local_callback_server", lambda port, timeout_s, state: (code, error))
     monkeypatch.setattr(gate_mod, "exchange_code", lambda *a, **kw: "access-token")
@@ -175,12 +178,21 @@ def make_verifier(monkeypatch, *, code="code123", error=None, has_role=True, exc
 
     monkeypatch.setattr(gate_mod, "member_has_role", fake_member_has_role)
 
-    # save_verified_session pisze do prawdziwego pliku .session obok .env -
-    # w testach NIGDY nie chcemy dotykac prawdziwego stanu projektu, wiec
-    # podmieniamy na nagrywajacy no-op (i tak samo w drugim miejscu, gdzie
-    # discord_gate.py go zaimportowal - patrz "from session import ...").
+    # save_verified_session i check_and_bind pisza do prawdziwych zasobow
+    # (plik .session obok .env, wspolne repo GitHub gatekey-devices) - w
+    # testach NIGDY nie chcemy dotykac tego prawdziwego stanu, wiec obie
+    # funkcje podmieniamy na nagrywajace no-opy (w miejscu, gdzie
+    # discord_gate.py je zaimportowal - patrz "from session/device_binding import ...").
     saved_calls = []
     monkeypatch.setattr(gate_mod, "save_verified_session", lambda user_id: saved_calls.append(user_id))
+    monkeypatch.setattr(gate_mod, "machine_id", lambda: "test-machine-id")
+    bind_calls = []
+
+    def fake_check_and_bind(user_id, mid):
+        bind_calls.append((user_id, mid))
+        return bind_allowed, bind_message
+
+    monkeypatch.setattr(gate_mod, "check_and_bind", fake_check_and_bind)
 
     verifier = gate_mod.GateVerifier(make_config())
     sink = Sink()
@@ -194,6 +206,16 @@ def test_gate_verifier_success(monkeypatch):
     verifier.run()
     assert sink.result == (True, "Zweryfikowano - dostep odblokowany.")
     assert saved_calls == ["user-id"]  # sesja zapisana dokladnie raz, dla wlasciwego usera
+
+
+def test_gate_verifier_device_already_bound_elsewhere(monkeypatch):
+    verifier, sink, saved_calls = make_verifier(
+        monkeypatch, has_role=True, bind_allowed=False,
+        bind_message="To konto Discord jest juz przypisane do innego komputera.",
+    )
+    verifier.run()
+    assert sink.result == (False, "To konto Discord jest juz przypisane do innego komputera.")
+    assert saved_calls == []  # brak zgody na przypisanie - sesja lokalna NIE moze zostac zapisana
 
 
 def test_gate_verifier_missing_role(monkeypatch):

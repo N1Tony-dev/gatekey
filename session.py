@@ -18,13 +18,13 @@ from config import app_dir
 SESSION_FILE = app_dir() / ".session"
 
 
-def _machine_id() -> str:
+def machine_id() -> str:
     return format(uuid.getnode(), "x")
 
 
 def save_verified_session(discord_user_id: str) -> None:
     data = {
-        "machine_id": _machine_id(),
+        "machine_id": machine_id(),
         "discord_user_id": discord_user_id,
         "verified_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -36,7 +36,7 @@ def has_valid_session() -> bool:
         data = json.loads(SESSION_FILE.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return False
-    return bool(data.get("discord_user_id")) and data.get("machine_id") == _machine_id()
+    return bool(data.get("discord_user_id")) and data.get("machine_id") == machine_id()
 
 
 def clear_session() -> None:

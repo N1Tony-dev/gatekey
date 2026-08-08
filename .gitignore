@@ -1,6 +1,7 @@
 # Sekrety / lokalny stan - nigdy nie commitowac
 .env
 .session
+device_binding_secret.py
 
 # Srodowisko / build
 .venv/

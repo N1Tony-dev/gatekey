@@ -19,7 +19,8 @@ import requests
 from PySide6.QtCore import QObject, Signal
 
 from config import Config
-from session import save_verified_session
+from device_binding import check_and_bind
+from session import machine_id, save_verified_session
 
 API_BASE = "https://discord.com/api/v10"
 AUTHORIZE_URL = "https://discord.com/api/oauth2/authorize"
@@ -160,11 +161,18 @@ class GateVerifier(QObject):
             user_id = fetch_current_user_id(access_token)
 
             self.status_changed.emit("Sprawdzam role na serwerze...")
-            if member_has_role(cfg.bot_token, cfg.guild_id, user_id, cfg.required_role_id):
-                save_verified_session(user_id)
-                self.finished.emit(True, "Zweryfikowano - dostep odblokowany.")
-            else:
+            if not member_has_role(cfg.bot_token, cfg.guild_id, user_id, cfg.required_role_id):
                 self.finished.emit(False, "Brak wymaganej roli na serwerze.")
+                return
+
+            self.status_changed.emit("Sprawdzam przypisanie urzadzenia...")
+            allowed, bind_message = check_and_bind(user_id, machine_id())
+            if not allowed:
+                self.finished.emit(False, bind_message)
+                return
+
+            save_verified_session(user_id)
+            self.finished.emit(True, "Zweryfikowano - dostep odblokowany.")
         except requests.RequestException as exc:
             self.finished.emit(False, f"Blad polaczenia z Discord: {exc}")
         except Exception as exc:  # ostatnia linia obrony - watek nigdy nie moze zabic sie niezlapanym wyjatkiem

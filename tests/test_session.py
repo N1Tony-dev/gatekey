@@ -20,7 +20,7 @@ def test_save_then_has_valid_session_true_on_same_machine(tmp_path, monkeypatch)
 def test_has_valid_session_false_on_machine_mismatch(tmp_path, monkeypatch):
     monkeypatch.setattr(session_mod, "SESSION_FILE", tmp_path / ".session")
     session_mod.save_verified_session("111222333")
-    monkeypatch.setattr(session_mod, "_machine_id", lambda: "different-machine")
+    monkeypatch.setattr(session_mod, "machine_id", lambda: "different-machine")
     assert session_mod.has_valid_session() is False
 
 
