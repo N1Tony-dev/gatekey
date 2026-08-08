@@ -104,9 +104,13 @@ del "%~f0"
 """
     updater_script.write_text(script, encoding="utf-8")
 
+    # Tylko CREATE_NO_WINDOW (bez DETACHED_PROCESS) - laczenie obu jest
+    # znanym zrodlem problemow na Windows: DETACHED_PROCESS odbiera procesowi
+    # konsole calkowicie, a polecenia w .bat (tasklist/find/move/timeout)
+    # potrzebuja niewidocznej konsoli, nie jej braku.
     subprocess.Popen(
         ["cmd", "/c", str(updater_script)],
-        creationflags=subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS,
+        creationflags=subprocess.CREATE_NO_WINDOW,
         close_fds=True,
     )
     sys.exit(0)
