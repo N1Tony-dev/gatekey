@@ -175,48 +175,57 @@ def make_verifier(monkeypatch, *, code="code123", error=None, has_role=True, exc
 
     monkeypatch.setattr(gate_mod, "member_has_role", fake_member_has_role)
 
+    # save_verified_session pisze do prawdziwego pliku .session obok .env -
+    # w testach NIGDY nie chcemy dotykac prawdziwego stanu projektu, wiec
+    # podmieniamy na nagrywajacy no-op (i tak samo w drugim miejscu, gdzie
+    # discord_gate.py go zaimportowal - patrz "from session import ...").
+    saved_calls = []
+    monkeypatch.setattr(gate_mod, "save_verified_session", lambda user_id: saved_calls.append(user_id))
+
     verifier = gate_mod.GateVerifier(make_config())
     sink = Sink()
     verifier.status_changed.connect(sink.on_status)
     verifier.finished.connect(sink.on_finished)
-    return verifier, sink
+    return verifier, sink, saved_calls
 
 
 def test_gate_verifier_success(monkeypatch):
-    verifier, sink = make_verifier(monkeypatch, has_role=True)
+    verifier, sink, saved_calls = make_verifier(monkeypatch, has_role=True)
     verifier.run()
     assert sink.result == (True, "Zweryfikowano - dostep odblokowany.")
+    assert saved_calls == ["user-id"]  # sesja zapisana dokladnie raz, dla wlasciwego usera
 
 
 def test_gate_verifier_missing_role(monkeypatch):
-    verifier, sink = make_verifier(monkeypatch, has_role=False)
+    verifier, sink, saved_calls = make_verifier(monkeypatch, has_role=False)
     verifier.run()
     assert sink.result[0] is False
     assert "roli" in sink.result[1]
+    assert saved_calls == []  # brak roli - sesja NIE moze zostac zapisana
 
 
 def test_gate_verifier_timeout(monkeypatch):
-    verifier, sink = make_verifier(monkeypatch, code=None, error=None)
+    verifier, sink, _ = make_verifier(monkeypatch, code=None, error=None)
     verifier.run()
     assert sink.result[0] is False
     assert "czas" in sink.result[1]
 
 
 def test_gate_verifier_discord_denied(monkeypatch):
-    verifier, sink = make_verifier(monkeypatch, code=None, error="access_denied")
+    verifier, sink, _ = make_verifier(monkeypatch, code=None, error="access_denied")
     verifier.run()
     assert sink.result == (False, "Odmowiono dostepu w Discordzie.")
 
 
 def test_gate_verifier_state_mismatch(monkeypatch):
-    verifier, sink = make_verifier(monkeypatch, code=None, error="state_mismatch")
+    verifier, sink, _ = make_verifier(monkeypatch, code=None, error="state_mismatch")
     verifier.run()
     assert sink.result[0] is False
     assert "state" in sink.result[1] or "bezpieczenstwa" in sink.result[1]
 
 
 def test_gate_verifier_network_error_is_never_unhandled(monkeypatch):
-    verifier, sink = make_verifier(monkeypatch, exc=requests.ConnectionError("boom"))
+    verifier, sink, _ = make_verifier(monkeypatch, exc=requests.ConnectionError("boom"))
     verifier.run()  # nie powinno rzucic wyjatku
     assert sink.result[0] is False
     assert "Blad polaczenia" in sink.result[1]

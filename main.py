@@ -12,12 +12,13 @@ zeby okno nigdy nie zamarzalo w trakcie trzymania/oczekiwania.
 
 from __future__ import annotations
 
+import base64
 import ctypes.wintypes as wintypes
 import sys
 import threading
 
 from PySide6.QtCore import QAbstractNativeEventFilter, QThread, Qt, Signal
-from PySide6.QtGui import QFont, QKeySequence, QShortcut
+from PySide6.QtGui import QFont, QIcon, QKeySequence, QPixmap, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
     QDoubleSpinBox,
@@ -38,6 +39,7 @@ import requests
 import input_sim
 import session
 import updater
+from icon import ICON_ICO_BASE64
 import worker as worker_mod
 from config import Config, ConfigError, load_config
 from discord_gate import GateVerifier
@@ -658,11 +660,20 @@ def _try_auto_update(app: QApplication) -> None:
     updater.apply_update_and_relaunch(new_exe_path)  # konczy proces (sys.exit)
 
 
+def _build_app_icon() -> QIcon:
+    pixmap = QPixmap()
+    pixmap.loadFromData(base64.b64decode(ICON_ICO_BASE64))
+    return QIcon(pixmap)
+
+
 def main() -> None:
     app = QApplication(sys.argv)
+    app_icon = _build_app_icon()
+    app.setWindowIcon(app_icon)
     _try_auto_update(app)
 
     window = MainWindow()
+    window.setWindowIcon(app_icon)
 
     hotkey_filter = HotkeyEventFilter(window)
     app.installNativeEventFilter(hotkey_filter)

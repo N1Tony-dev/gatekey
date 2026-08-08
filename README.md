@@ -47,7 +47,7 @@ prawdziwym Discordem/GitHubem.
 ## Budowanie .exe
 
 ```
-.venv\Scripts\python.exe -m PyInstaller --onefile --windowed --name Gatekey main.py
+.venv\Scripts\python.exe -m PyInstaller --onefile --windowed --name Gatekey --icon icon.ico main.py
 ```
 
 Wynik: `dist\Gatekey.exe`. Plik `.env` musi lezec **obok** `.exe` (nie jest
@@ -59,7 +59,7 @@ Aplikacja porownuje wlasny numer wersji (`version.py`) z tagiem najnowszego
 Release na GitHubie. Zeby wypuscic aktualizacje:
 
 1. Podbij numer w `version.py`, np. `__version__ = "1.1.0"`
-2. Zbuduj: `.venv\Scripts\python.exe -m PyInstaller --onefile --windowed --name Gatekey main.py`
+2. Zbuduj: `.venv\Scripts\python.exe -m PyInstaller --onefile --windowed --name Gatekey --icon icon.ico main.py`
 3. Opublikuj release z tagiem **dokladnie** w formacie `vX.Y.Z` i zalacznikiem
    `Gatekey.exe`:
    ```
