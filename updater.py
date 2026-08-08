@@ -99,7 +99,8 @@ if errorlevel 1 (
     timeout /t 1 /nobreak >NUL
     goto trymove
 )
-start "" "{current_exe}"
+start "Gatekey" /B "{current_exe}"
+timeout /t 1 /nobreak >NUL
 del "%~f0"
 """
     updater_script.write_text(script, encoding="utf-8")
