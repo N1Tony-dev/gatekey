@@ -36,6 +36,7 @@ from PySide6.QtWidgets import (
 import requests
 
 import input_sim
+import session
 import updater
 import worker as worker_mod
 from config import Config, ConfigError, load_config
@@ -561,9 +562,15 @@ class MainWindow(QWidget):
         self._stack = QStackedWidget()
         root.addWidget(self._stack)
 
-        self._gate_page = GatePage(self._cfg, self._cfg_error)
-        self._gate_page.unlocked.connect(self._on_unlocked)
-        self._stack.addWidget(self._gate_page)
+        # Jesli to urzadzenie ma juz zapisana udana weryfikacje (patrz
+        # session.py), pomijamy ekran bramki calkowicie - Gatekey nie pyta
+        # o autoryzacje przy kazdym uruchomieniu, tylko raz na komputer.
+        if self._cfg is not None and session.has_valid_session():
+            self._show_control_page()
+        else:
+            self._gate_page = GatePage(self._cfg, self._cfg_error)
+            self._gate_page.unlocked.connect(self._on_unlocked)
+            self._stack.addWidget(self._gate_page)
 
         version_row = QHBoxLayout()
         version_row.addStretch(1)
@@ -575,6 +582,9 @@ class MainWindow(QWidget):
         self.setStyleSheet(QSS)
 
     def _on_unlocked(self) -> None:
+        self._show_control_page()
+
+    def _show_control_page(self) -> None:
         self._control_page = ControlPage()
         self._stack.addWidget(self._control_page)
         self._stack.setCurrentWidget(self._control_page)

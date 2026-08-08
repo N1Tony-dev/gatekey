@@ -12,7 +12,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 
-def _app_dir() -> Path:
+def app_dir() -> Path:
     """Folder z .env - obok .exe gdy zapakowane (PyInstaller), obok tego
     pliku w trybie deweloperskim. cwd nie jest tu wiarygodne: po spakowaniu
     zalezy od tego, jak uzytkownik uruchomil .exe (skrot, PowerShell, itd.)."""
@@ -21,7 +21,7 @@ def _app_dir() -> Path:
     return Path(__file__).resolve().parent
 
 
-load_dotenv(_app_dir() / ".env")
+load_dotenv(app_dir() / ".env")
 
 REQUIRED_KEYS = (
     "DISCORD_CLIENT_ID",

@@ -19,6 +19,7 @@ import requests
 from PySide6.QtCore import QObject, Signal
 
 from config import Config
+from session import save_verified_session
 
 API_BASE = "https://discord.com/api/v10"
 AUTHORIZE_URL = "https://discord.com/api/oauth2/authorize"
@@ -160,6 +161,7 @@ class GateVerifier(QObject):
 
             self.status_changed.emit("Sprawdzam role na serwerze...")
             if member_has_role(cfg.bot_token, cfg.guild_id, user_id, cfg.required_role_id):
+                save_verified_session(user_id)
                 self.finished.emit(True, "Zweryfikowano - dostep odblokowany.")
             else:
                 self.finished.emit(False, "Brak wymaganej roli na serwerze.")

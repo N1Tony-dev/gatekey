@@ -1,5 +1,6 @@
-# Sekrety - nigdy nie commitowac
+# Sekrety / lokalny stan - nigdy nie commitowac
 .env
+.session
 
 # Srodowisko / build
 .venv/
