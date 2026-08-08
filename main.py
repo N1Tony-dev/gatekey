@@ -17,7 +17,7 @@ import ctypes.wintypes as wintypes
 import sys
 import threading
 
-from PySide6.QtCore import QAbstractNativeEventFilter, QThread, Qt, Signal
+from PySide6.QtCore import QAbstractNativeEventFilter, QObject, QThread, Qt, Signal
 from PySide6.QtGui import QFont, QIcon, QKeySequence, QPixmap, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
@@ -39,6 +39,7 @@ import requests
 import input_sim
 import session
 import updater
+from bans import check_ban
 from icon import ICON_ICO_BASE64
 import worker as worker_mod
 from config import Config, ConfigError, load_config
@@ -238,6 +239,22 @@ class HotkeyEventFilter(QAbstractNativeEventFilter):
         return False, 0
 
 
+class StartupBanCheckWorker(QObject):
+    """Szybkie sprawdzenie w tle (bez calego OAuth) czy juz zweryfikowane
+    na tym komputerze konto Discord nie zostalo zbanowane od ostatniego
+    uruchomienia."""
+
+    finished = Signal(bool, str)  # (zbanowany, komunikat)
+
+    def __init__(self, discord_user_id: str):
+        super().__init__()
+        self._user_id = discord_user_id
+
+    def run(self) -> None:
+        banned, message = check_ban(self._user_id)
+        self.finished.emit(banned, message or "")
+
+
 class GatePage(QWidget):
     """Ekran startowy: trzeba polaczyc konto Discord i miec wymagana role
     na serwerze, zeby przejsc dalej."""
@@ -333,6 +350,31 @@ class GatePage(QWidget):
         else:
             self._set_status(message, "stopped")
             self.connect_button.setEnabled(True)
+
+    def run_silent_ban_check(self, discord_user_id: str) -> None:
+        self.connect_button.setEnabled(False)
+        self._set_status("Sprawdzanie dostepu...", "countdown")
+
+        self._thread = QThread(self)
+        self._ban_worker = StartupBanCheckWorker(discord_user_id)
+        self._ban_worker.moveToThread(self._thread)
+        self._thread.started.connect(self._ban_worker.run)
+        self._ban_worker.finished.connect(self._on_silent_ban_check_finished)
+        self._thread.start()
+
+    def _on_silent_ban_check_finished(self, banned: bool, message: str) -> None:
+        self._thread.quit()
+        self._thread.wait(2000)
+        self._thread = None
+        self._ban_worker = None
+
+        if banned:
+            self._set_status(message, "stopped")
+            # connect_button pozostaje wylaczony - zbanowane konto i tak
+            # zostanie odrzucone ponownie przy probie logowania od nowa
+            # (patrz check_ban w discord_gate.py)
+        else:
+            self.unlocked.emit()
 
 
 class ControlPage(QWidget):
@@ -564,15 +606,19 @@ class MainWindow(QWidget):
         self._stack = QStackedWidget()
         root.addWidget(self._stack)
 
+        self._gate_page = GatePage(self._cfg, self._cfg_error)
+        self._gate_page.unlocked.connect(self._on_unlocked)
+        self._stack.addWidget(self._gate_page)
+
         # Jesli to urzadzenie ma juz zapisana udana weryfikacje (patrz
-        # session.py), pomijamy ekran bramki calkowicie - Gatekey nie pyta
-        # o autoryzacje przy kazdym uruchomieniu, tylko raz na komputer.
+        # session.py), nie pokazujemy pelnego ekranu logowania - ale wciaz
+        # robimy szybkie sprawdzenie w tle czy konto nie zostalo zbanowane
+        # od ostatniego uruchomienia (patrz GatePage.run_silent_ban_check).
+        # Bez tego ban nie mialby zadnego efektu na juz zweryfikowana sesje.
         if self._cfg is not None and session.has_valid_session():
-            self._show_control_page()
-        else:
-            self._gate_page = GatePage(self._cfg, self._cfg_error)
-            self._gate_page.unlocked.connect(self._on_unlocked)
-            self._stack.addWidget(self._gate_page)
+            saved_user_id = session.get_saved_user_id()
+            if saved_user_id:
+                self._gate_page.run_silent_ban_check(saved_user_id)
 
         version_row = QHBoxLayout()
         version_row.addStretch(1)

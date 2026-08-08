@@ -164,12 +164,13 @@ class Sink:
 
 def make_verifier(
     monkeypatch, *, code="code123", error=None, has_role=True, exc=None,
-    bind_allowed=True, bind_message="OK",
+    bind_allowed=True, bind_message="OK", banned=False, ban_message="",
 ):
     monkeypatch.setattr(gate_mod, "webbrowser", type("_W", (), {"open": staticmethod(lambda url: None)}))
     monkeypatch.setattr(gate_mod, "run_local_callback_server", lambda port, timeout_s, state: (code, error))
     monkeypatch.setattr(gate_mod, "exchange_code", lambda *a, **kw: "access-token")
     monkeypatch.setattr(gate_mod, "fetch_current_user_id", lambda token: "user-id")
+    monkeypatch.setattr(gate_mod, "check_ban", lambda user_id: (banned, ban_message))
 
     def fake_member_has_role(*a, **kw):
         if exc is not None:
@@ -206,6 +207,15 @@ def test_gate_verifier_success(monkeypatch):
     verifier.run()
     assert sink.result == (True, "Zweryfikowano - dostep odblokowany.")
     assert saved_calls == ["user-id"]  # sesja zapisana dokladnie raz, dla wlasciwego usera
+
+
+def test_gate_verifier_banned_account_rejected_before_role_check(monkeypatch):
+    verifier, sink, saved_calls = make_verifier(
+        monkeypatch, has_role=True, banned=True, ban_message="Zbanowano do 2026-01-01 00:00 UTC.",
+    )
+    verifier.run()
+    assert sink.result == (False, "Zbanowano do 2026-01-01 00:00 UTC.")
+    assert saved_calls == []
 
 
 def test_gate_verifier_device_already_bound_elsewhere(monkeypatch):

@@ -39,6 +39,14 @@ def has_valid_session() -> bool:
     return bool(data.get("discord_user_id")) and data.get("machine_id") == machine_id()
 
 
+def get_saved_user_id() -> str | None:
+    try:
+        data = json.loads(SESSION_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return data.get("discord_user_id")
+
+
 def clear_session() -> None:
     try:
         SESSION_FILE.unlink()

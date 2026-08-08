@@ -18,6 +18,7 @@ import webbrowser
 import requests
 from PySide6.QtCore import QObject, Signal
 
+from bans import check_ban
 from config import Config
 from device_binding import check_and_bind
 from session import machine_id, save_verified_session
@@ -159,6 +160,12 @@ class GateVerifier(QObject):
 
             self.status_changed.emit("Pobieram tozsamosc Discord...")
             user_id = fetch_current_user_id(access_token)
+
+            self.status_changed.emit("Sprawdzam status konta...")
+            banned, ban_message = check_ban(user_id)
+            if banned:
+                self.finished.emit(False, ban_message)
+                return
 
             self.status_changed.emit("Sprawdzam role na serwerze...")
             if not member_has_role(cfg.bot_token, cfg.guild_id, user_id, cfg.required_role_id):
