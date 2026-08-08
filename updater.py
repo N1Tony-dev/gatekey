@@ -99,8 +99,11 @@ if errorlevel 1 (
     timeout /t 1 /nobreak >NUL
     goto trymove
 )
+rem krotka przerwa - uruchomienie od razu po zapisie moglo by trafic na
+rem swiezo podmieniony plik, ktory system/antywirus jeszcze "dotyka"
+rem (obserwowane: sporadyczny "Failed to load Python DLL" bez tej przerwy)
+timeout /t 2 /nobreak >NUL
 start "Gatekey" /B "{current_exe}"
-timeout /t 1 /nobreak >NUL
 del "%~f0"
 """
     updater_script.write_text(script, encoding="utf-8")
